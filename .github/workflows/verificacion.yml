@@ -1,0 +1,38 @@
+name: Verificación Java y MySQL
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: clave-solo-ci
+          MYSQL_DATABASE: sgai-soldano-db
+          MYSQL_USER: sgai_ci
+          MYSQL_PASSWORD: clave-solo-ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -pclave-solo-ci"
+          --health-interval=10s --health-timeout=5s --health-retries=15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Aplicar esquema de pruebas
+        env:
+          MYSQL_PWD: clave-solo-ci
+        run: mysql --protocol=tcp -h 127.0.0.1 -u sgai_ci sgai-soldano-db < database/esquema.sql
+      - name: Pruebas y empaquetado
+        env:
+          SGAI_PRUEBAS_MYSQL: 'true'
+          SGAI_DB_USUARIO: sgai_ci
+          SGAI_DB_CLAVE: clave-solo-ci
+          SGAI_DB_URL: jdbc:mysql://127.0.0.1:3306/sgai-soldano-db?sslMode=DISABLED&connectTimeout=5000&socketTimeout=15000
+        run: mvn --batch-mode verify
